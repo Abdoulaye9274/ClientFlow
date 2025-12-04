@@ -23,6 +23,7 @@ import {
 } from "@mui/icons-material";
 import { keyframes } from "@mui/system";
 import api from "../api";
+import { useAuth } from "../context/AuthContext";
 
 // Animation de float
 const float = keyframes`
@@ -37,12 +38,15 @@ const pulse = keyframes`
   100% { transform: scale(1); }
 `;
 
+
+
 export default function Login() {
   const [credentials, setCredentials] = useState({ login: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,12 +55,11 @@ export default function Login() {
 
     try {
       const response = await api.post("/auth/login", credentials);
-      localStorage.setItem("token", response.data.token);
-      
-      // Animation de succès
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 500);
+
+      login(response.data.user, response.data.token);
+
+      // Redirection immédiate vers le dashboard
+      navigate("/dashboard");
     } catch (err) {
       setError("Identifiants incorrects. Veuillez réessayer.");
       setLoading(false);
@@ -144,7 +147,7 @@ export default function Login() {
               >
                 <Business sx={{ fontSize: 40 }} />
               </Avatar>
-              
+
               <Typography
                 variant="h3"
                 sx={{
@@ -156,9 +159,9 @@ export default function Login() {
                   mb: 1,
                 }}
               >
-                Mini CRM
+                ClientFlow
               </Typography>
-              
+
               <Typography
                 variant="h6"
                 color="textSecondary"
@@ -296,7 +299,7 @@ export default function Login() {
             {/* Footer */}
             <Box sx={{ textAlign: "center", mt: 4 }}>
               <Typography variant="body2" color="textSecondary">
-                © 2025 Mini CRM - Solution de gestion client
+                © 2025 ClientFlow - Solution de gestion client
               </Typography>
             </Box>
           </Paper>

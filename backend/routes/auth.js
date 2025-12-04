@@ -9,50 +9,42 @@ dotenv.config();
 const router = express.Router();
 
 router.post("/login", async (req, res) => {
-  console.log("🚨 REQUÊTE REÇUE SUR /login");
-  console.log("Body reçu:", req.body);
-  
+  // Removed sensitive logs
   const { login, password } = req.body;
-  
-  console.log("🔍 Tentative de connexion pour:", login);
-  console.log("🔐 Mot de passe reçu:", password);
 
-  // PAR :
   try {
-    // Base d'utilisateurs avec hashs bcrypt
-    const users = [
-      {
-        id: 1,
-        login: 'abdoulaye',
-        password: '$2b$10$NLEMPX8vHQKVPV7R7z3bEeyBSuRtqNudWpudRiiVTuK0zx93A0f/O', // abdoulaye123!
-        role: 'admin'
-      }
-    ];
+    // Query user from DB
+    const result = await pool.query("SELECT * FROM users WHERE login = $1", [login]);
+    const user = result.rows[0];
 
-    const user = users.find(u => u.login === login);
-    
     if (!user) {
-      console.log("❌ Utilisateur non trouvé");
       return res.status(401).json({ message: "Identifiants introuvables" });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+
     if (!isValidPassword) {
-      console.log("❌ Mot de passe incorrect");
       return res.status(401).json({ message: "Identifiants introuvables" });
     }
 
-    console.log("✅ Connexion réussie pour:", login);
+    // Generate Token
     const token = jwt.sign(
-      { id: user.id, role: user.role }, 
-      process.env.JWT_SECRET || "votre_secret_jwt", 
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || "votre_secret_jwt",
       { expiresIn: "1h" }
     );
-    res.json({ token, role: user.role });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        login: user.login,
+        role: user.role
+      }
+    });
 
   } catch (error) {
-    console.error("Erreur auth:", error);
+    console.error("Erreur auth:", error.message); // Log only message, not full error object if it contains sensitive data
     res.status(500).json({ message: "Erreur serveur" });
   }
 });

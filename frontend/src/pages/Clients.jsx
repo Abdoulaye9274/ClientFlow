@@ -10,14 +10,17 @@ import {
   Snackbar,
   Paper,
   IconButton,
+  InputAdornment,
 } from "@mui/material";
-//import AddIcon from "@mui/icons-material/Add";
+import SearchIcon from "@mui/icons-material/Search";
 import FolderIcon from "@mui/icons-material/Folder";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ClientForm from "../components/ClientForm";
+import { useAuth } from "../context/AuthContext";
 
 export default function Clients() {
+  const { user } = useAuth();
   const [clients, setClients] = useState([]);
   const [search, setSearch] = useState("");
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
@@ -99,13 +102,15 @@ export default function Clients() {
           >
             <FolderIcon />
           </IconButton>
-          <IconButton
-            color="primary"
-            onClick={() => handleEdit(params.row)}
-            title="Modifier"
-          >
-            <EditIcon />
-          </IconButton>
+          {user && user.role === 'admin' && (
+            <IconButton
+              color="primary"
+              onClick={() => handleEdit(params.row)}
+              title="Modifier"
+            >
+              <EditIcon />
+            </IconButton>
+          )}
           <IconButton
             color="error"
             onClick={() => handleDelete(params.row.id)}
@@ -159,9 +164,18 @@ export default function Clients() {
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField
           label="Rechercher un client"
+          variant="outlined"
+          size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 300 }}
+          sx={{ width: 300, bgcolor: "white" }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
         />
       </Box>
 
@@ -175,8 +189,8 @@ export default function Clients() {
           bgcolor: "#f4f6fa",
           borderRadius: 2,
           "& .MuiDataGrid-columnHeaders": {
-            bgcolor: "#1976d2",
-            color: "#fff",
+            bgcolor: "#f5f5f5",
+            color: "#000",
             fontWeight: "bold",
           },
         }}

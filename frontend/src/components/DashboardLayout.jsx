@@ -4,13 +4,15 @@ import {
   AppBar, Toolbar, Typography, Drawer, List, ListItemButton, ListItemIcon, ListItemText,
   Button, Box, Avatar
 } from "@mui/material";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
 import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import DescriptionIcon from "@mui/icons-material/Description";
 import BuildIcon from "@mui/icons-material/Build";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 
-const drawerWidth = 220;
+const drawerWidth = 240;
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -21,10 +23,9 @@ export default function DashboardLayout() {
   };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#f4f6fa" }}>
+    <Box sx={{ display: "flex" }}>
       <Drawer
         variant="permanent"
-        anchor="left"
         sx={{
           width: drawerWidth,
           "& .MuiDrawer-paper": {
@@ -35,46 +36,52 @@ export default function DashboardLayout() {
           }
         }}
       >
-        <Toolbar>
-          <Avatar sx={{ bgcolor: "#fff", color: "#1976d2", mr: 1 }}>CRM</Avatar>
-          <Typography variant="h6" sx={{ fontWeight: "bold" }}>Mini CRM</Typography>
+        <Toolbar sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box
+            component="img"
+            src={require("../assets/logo.png")}
+            alt="Logo"
+            sx={{
+              width: 40,
+              height: 40,
+              bgcolor: 'white',
+              borderRadius: '50%',
+              p: 0.5
+            }}
+          />
+          <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+            ClientFlow
+          </Typography>
         </Toolbar>
-        <List>
-  <ListItemButton onClick={() => navigate("/dashboard")}>
-    <ListItemIcon sx={{ color: "#fff" }}><PeopleIcon /></ListItemIcon>
-    <ListItemText primary="Tableau de bord" />
-  </ListItemButton>
 
-  <ListItemButton onClick={() => navigate("/dashboard/clients")}>
-    <ListItemIcon sx={{ color: "#fff" }}><PeopleIcon /></ListItemIcon>
-    <ListItemText primary="Clients" />
-  </ListItemButton>
-
-  <ListItemButton onClick={() => navigate("/dashboard/contracts")}>
-    <ListItemIcon sx={{ color: "#fff" }}><DescriptionIcon /></ListItemIcon>
-    <ListItemText primary="Contrats" />
-  </ListItemButton>
-
-  <ListItemButton onClick={() => navigate("/dashboard/services")}>
-    <ListItemIcon sx={{ color: "#fff" }}><BuildIcon /></ListItemIcon>
-    <ListItemText primary="Services" />
-  </ListItemButton>
-
-  <ListItemButton onClick={() => navigate("/dashboard/settings")}>
-    <ListItemIcon sx={{ color: "#fff" }}><SettingsIcon /></ListItemIcon>
-    <ListItemText primary="Paramètres" />
-  </ListItemButton>
-</List>
+        <List sx={{ px: 2 }}>
+          {[
+            { text: "Tableau de bord", icon: <DashboardIcon />, path: "/dashboard" },
+            { text: "Clients", icon: <PeopleIcon />, path: "/dashboard/clients" },
+            { text: "Contrats", icon: <DescriptionIcon />, path: "/dashboard/contracts" },
+            { text: "Services", icon: <BuildIcon />, path: "/dashboard/services" },
+            { text: "Assistant IA", icon: <SmartToyIcon />, path: "/dashboard/ai" },
+            { text: "Paramètres", icon: <SettingsIcon />, path: "/dashboard/settings" }
+          ].map((item) => (
+            <ListItemButton
+              key={item.text}
+              onClick={() => navigate(item.path)}
+              sx={{ mb: 1, borderRadius: 1 }}
+            >
+              <ListItemIcon sx={{ color: "#fff" }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          ))}
+        </List>
 
         <Box sx={{ flexGrow: 1 }} />
         <Box sx={{ p: 2 }}>
           <Button
-            variant="contained"
-            color="secondary"
+            variant="outlined"
             startIcon={<LogoutIcon />}
             fullWidth
             onClick={handleLogout}
-            sx={{ bgcolor: "#fff", color: "#1976d2", fontWeight: "bold" }}
+            sx={{ color: "#fff", borderColor: "#fff" }}
           >
             Déconnexion
           </Button>
@@ -87,6 +94,22 @@ export default function DashboardLayout() {
             <Typography variant="h5" sx={{ flexGrow: 1, fontWeight: "bold" }}>
               Tableau de bord
             </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ textAlign: 'right' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {JSON.parse(localStorage.getItem('user') || '{}').login || 'Utilisateur'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#666' }}>
+                  {JSON.parse(localStorage.getItem('user') || '{}').role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+                </Typography>
+              </Box>
+              <Avatar
+                sx={{ bgcolor: '#1976d2', cursor: 'pointer' }}
+                onClick={() => navigate("/dashboard/settings")}
+              >
+                {(JSON.parse(localStorage.getItem('user') || '{}').login || 'U')[0].toUpperCase()}
+              </Avatar>
+            </Box>
           </Toolbar>
         </AppBar>
         <Box sx={{ p: 3 }}>

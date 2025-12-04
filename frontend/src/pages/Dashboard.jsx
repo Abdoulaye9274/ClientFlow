@@ -3,7 +3,6 @@ import api from "../api";
 import {
   Grid,
   Card,
-  // CardContent,
   Typography,
   Box,
   CircularProgress,
@@ -14,6 +13,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TableContainer,
 } from "@mui/material";
 import PeopleIcon from "@mui/icons-material/People";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -60,50 +60,42 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchAllData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
 
-        // Récupération des vraies données
-        const [statsRes, activitiesRes, clientsRes, contractsRes] = await Promise.all([
-          api.get("/stats/dashboard"),
-          api.get("/activities/recent"),
-          api.get("/clients"),
-          api.get("/contracts")
-        ]);
+        // ✅ RÉCUPÉREZ UNIQUEMENT LES STATS
+        const statsRes = await api.get('/stats/dashboard');
 
-        setStats(statsRes.data);
-        setActivities(activitiesRes.data);
+        console.log('📊 Stats reçues:', statsRes.data);
 
-        // Calculer les vraies stats depuis les données
-        const realStats = {
-          clientCount: clientsRes.data.length,
-          contractCount: contractsRes.data.length,
-          revenue: contractsRes.data.reduce((sum, contract) => sum + (contract.montant || 0), 0),
-          contractsHistory: calculateMonthlyContracts(contractsRes.data)
-        };
+        // ✅ UTILISEZ DIRECTEMENT LES STATS DE L'API
+        setStats({
+          clientCount: statsRes.data.clientCount,
+          contractCount: statsRes.data.contractCount,
+          revenue: parseFloat(statsRes.data.revenue),
+          contractsHistory: statsRes.data.contractsHistory
+        });
 
-        setStats(realStats);
+        // ✅ RÉCUPÉREZ LES ACTIVITÉS
+        try {
+          const activitiesRes = await api.get('/activities/recent');
+          setActivities(activitiesRes.data || []);
+        } catch (err) {
+          console.log('Activités non disponibles');
+          setActivities([]);
+        }
 
       } catch (error) {
-        console.error("Erreur:", error);
-        setError("Erreur lors du chargement des données");
+        console.error('❌ Erreur lors du chargement:', error);
+        setError('Erreur lors du chargement des données');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAllData();
+    fetchData();
   }, []);
-
-  // Fonction pour calculer l'historique mensuel
-  const calculateMonthlyContracts = (contracts) => {
-    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'];
-    return months.map(month => ({
-      month,
-      contracts: Math.floor(Math.random() * contracts.length) + 1 // Simulation basée sur le total
-    }));
-  };
 
   if (loading)
     return (
@@ -129,7 +121,7 @@ export default function Dashboard() {
         <Typography variant="h4" fontWeight="bold">
           Tableau de bord
         </Typography>
-        <Typography>Vue d’ensemble de vos données</Typography>
+        <Typography>Vue d'ensemble de vos données</Typography>
       </Paper>
 
       {/* Statistiques clés */}
@@ -185,31 +177,58 @@ export default function Dashboard() {
       </Box>
 
       {/* Activités récentes */}
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Activités récentes
+      <Paper elevation={3} sx={{ mt: 4, p: 3, borderRadius: 3 }}>
+        <Typography variant="h6" gutterBottom sx={{ fontWeight: "bold", color: "#1976d2", mb: 3 }}>
+          📋 Activités Récentes
         </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Statut</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {activities.map((act) => (
-              <TableRow key={act.id}>
-                <TableCell>{act.date}</TableCell>
-                <TableCell>{act.type}</TableCell>
-                <TableCell>{act.description}</TableCell>
-                <TableCell>{act.status}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Box>
+        {activities.length > 0 ? (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                  <TableCell><strong>Date & Heure</strong></TableCell>
+                  <TableCell><strong>Type d'Activité</strong></TableCell>
+                  <TableCell><strong>Responsable</strong></TableCell>
+                  <TableCell><strong>Statut</strong></TableCell>
+                  <TableCell><strong>Détails</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {activities.map((act, index) => (
+                  <TableRow key={index} hover>
+                    <TableCell>
+                      {new Date(act.timestamp).toLocaleDateString('fr-FR')} - {new Date(act.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </TableCell>
+                    <TableCell>{act.type}</TableCell>
+                    <TableCell>{act.user || 'Système'}</TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{
+                          display: 'inline-block',
+                          px: 2,
+                          py: 0.5,
+                          borderRadius: 1,
+                          bgcolor: act.status === 'terminé' ? '#d4edda' : act.status === 'en cours' ? '#fff3cd' : '#f8d7da',
+                          color: act.status === 'terminé' ? '#155724' : act.status === 'en cours' ? '#856404' : '#721c24',
+                          fontSize: '0.875rem',
+                          fontWeight: 500
+                        }}
+                      >
+                        {act.status || 'terminé'}
+                      </Box>
+                    </TableCell>
+                    <TableCell>{act.description}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 4, color: '#999' }}>
+            <Typography>Aucune activité récente</Typography>
+          </Box>
+        )}
+      </Paper>
     </Box>
   );
 }
