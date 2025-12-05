@@ -25,8 +25,8 @@ router.get("/", authenticateToken, async (req, res) => {
 router.post("/", authenticateToken, async (req, res) => {
     const {
         client_id, id_dossier, status, type_dossier, priorite,
-        sujet, description, remarques, document_url, responsable_id,
-        date_echeance, cout_estime
+        sujet, description, remarques = null, document_url = null,
+        responsable_id = null, date_echeance = null, cout_estime = null
     } = req.body;
 
     try {

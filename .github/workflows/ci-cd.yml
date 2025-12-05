@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  REGISTRY: ${{ secrets.SCW_REGISTRY }} # ex: rg.fr-par.scw.cloud/namespace-blissful-rosalind
+  FRONT_TAG: ${{ secrets.SCW_REGISTRY }}/minicrm-frontend:latest
+  BACK_TAG: ${{ secrets.SCW_REGISTRY }}/minicrm-backend:latest
+
 jobs:
   build-test:
     runs-on: ubuntu-latest
@@ -20,7 +25,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U crmuser -d crm"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -70,11 +75,98 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment: TEST
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: 🐳 Build and push Docker image
+      - name: Setup Docker CLI
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Scaleway registry
         run: |
-          echo "Ici tu pourrais builder ton image Docker et la pousser sur Docker Hub"
-          echo "Exemple : docker build -t tonuser/mini-crm:latest ."
+          printf "%s" "${{ secrets.SCW_SECRET_KEY }}" | docker login ${{ secrets.SCW_REGISTRY }} -u nologin --password-stdin
+
+      - name: Build and push frontend image
+        run: |
+          docker build -t "${{ env.FRONT_TAG }}" ./frontend
+          docker push "${{ env.FRONT_TAG }}"
+
+      - name: Build and push backend image
+        run: |
+          docker build -t "${{ env.BACK_TAG }}" ./backend
+          docker push "${{ env.BACK_TAG }}"
+
+      - name: Generate deploy docker-compose file
+        run: |
+          cat > docker-compose.deploy.yml <<EOF
+            version: "3.8"
+
+            services:
+              frontend:
+                image: ${REGISTRY}/minicrm-frontend:latest
+                ports:
+                  - "3001:80"
+                depends_on:
+                  - backend
+
+              backend:
+                image: ${REGISTRY}/minicrm-backend:latest
+                ports:
+                  - "5000:5000"
+                env_file:
+                  - ./backend/.env
+                depends_on:
+                  db:
+                    condition: service_healthy
+
+              db:
+                image: postgres:16
+                environment:
+                  POSTGRES_DB: crm
+                  POSTGRES_USER: postgres
+                  POSTGRES_PASSWORD: postgres
+                volumes:
+                  - db_data:/var/lib/postgresql/data
+                  - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+                ports:
+                  - "5432:5432"
+                healthcheck:
+                  test: ["CMD", "pg_isready", "-U", "postgres", "-d", "crm"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 5
+
+            volumes:
+              db_data:
+          EOF
+
+      - name: Copy compose to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SCW_HOST }}
+          username: ${{ secrets.SCW_USER }}
+          key: ${{ secrets.SCW_SSH_KEY }}
+          port: ${{ secrets.SCW_SSH_PORT || 22 }}
+          source: "docker-compose.deploy.yml"
+          target: "~/minicrm/Mini_crm"
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SCW_HOST }}
+          username: ${{ secrets.SCW_USER }}
+          key: ${{ secrets.SCW_SSH_KEY }}
+          port: ${{ secrets.SCW_SSH_PORT || 22 }}
+          script: |
+            set -e
+            mkdir -p ~/minicrm/Mini_crm
+            cd ~/minicrm/Mini_crm
+            
+            mv docker-compose.deploy.yml docker-compose.yml
+            printf "%s" "${{ secrets.SCW_SECRET_KEY }}" | docker login ${{ secrets.SCW_REGISTRY }} -u nologin --password-stdin
+
+            docker-compose down
+            docker-compose pull
+            docker-compose up -d --remove-orphans

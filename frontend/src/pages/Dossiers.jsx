@@ -21,13 +21,18 @@ import {
     MenuItem,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import { IconButton, Tooltip } from "@mui/material";
 
 export default function Dossiers() {
     const [dossiers, setDossiers] = useState([]);
     const [clients, setClients] = useState([]);
     const [open, setOpen] = useState(false);
     const [searchParams] = useSearchParams();
+
     const clientId = searchParams.get('client');
+    const [isEditing, setIsEditing] = useState(false);
+    const [selectedDossierId, setSelectedDossierId] = useState(null);
 
     const [formData, setFormData] = useState({
         client_id: "",
@@ -35,7 +40,10 @@ export default function Dossiers() {
         type_dossier: "support",
         priorite: "normale",
         description: "",
-        status: "en_cours"
+        status: "en_cours",
+        remarques: "",
+        cout_estime: "",
+        date_echeance: ""
     });
 
     const fetchDossiers = async () => {
@@ -43,7 +51,7 @@ export default function Dossiers() {
             const response = await api.get("/dossiers");
             let dossiersData = response.data;
             if (clientId) {
-                dossiersData = dossiersData.filter(d => d.client_id === clientId);
+                dossiersData = dossiersData.filter(d => d.client_id === parseInt(clientId));
             }
             setDossiers(dossiersData);
         } catch (error) {
@@ -68,33 +76,74 @@ export default function Dossiers() {
         }
     }, [clientId]);
 
-    const handleOpen = () => setOpen(true);
+    const handleOpen = (dossier = null) => {
+        if (dossier) {
+            setIsEditing(true);
+            setSelectedDossierId(dossier.id);
+            setFormData({
+                client_id: dossier.client_id,
+                sujet: dossier.sujet,
+                type_dossier: dossier.type_dossier,
+                priorite: dossier.priorite,
+                description: dossier.description || "",
+                status: dossier.status,
+                remarques: dossier.remarques || "",
+                cout_estime: dossier.cout_estime || "",
+                date_echeance: dossier.date_echeance ? dossier.date_echeance.split('T')[0] : ""
+            });
+        } else {
+            setIsEditing(false);
+            setSelectedDossierId(null);
+            setFormData({
+                client_id: clientId || "",
+                sujet: "",
+                type_dossier: "support",
+                priorite: "normale",
+                description: "",
+                status: "en_cours",
+                remarques: "",
+                cout_estime: "",
+                date_echeance: ""
+            });
+        }
+        setOpen(true);
+    };
+
     const handleClose = () => {
         setOpen(false);
+        setIsEditing(false);
+        setSelectedDossierId(null);
         setFormData({
             client_id: clientId || "",
             sujet: "",
             type_dossier: "support",
             priorite: "normale",
             description: "",
-            status: "en_cours"
+            status: "en_cours",
+            remarques: "",
+            cout_estime: "",
+            date_echeance: ""
         });
     };
 
     const handleSubmit = async () => {
         try {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-            const id_dossier = `DOS-${year}${month}-${random}`;
+            if (isEditing) {
+                await api.put(`/dossiers/${selectedDossierId}`, formData);
+            } else {
+                const today = new Date();
+                const year = today.getFullYear();
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                const id_dossier = `DOS-${year}${month}-${random}`;
 
-            await api.post("/dossiers", { ...formData, id_dossier });
+                await api.post("/dossiers", { ...formData, id_dossier });
+            }
             fetchDossiers();
             handleClose();
         } catch (error) {
-            console.error("Erreur lors de la création:", error);
-            alert("Erreur lors de la création du dossier");
+            console.error("Erreur lors de l'enregistrement:", error);
+            alert("Erreur lors de l'enregistrement du dossier");
         }
     };
 
@@ -121,7 +170,7 @@ export default function Dossiers() {
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
-                        onClick={handleOpen}
+                        onClick={() => handleOpen()}
                         sx={{ bgcolor: "#1976d2", color: "#fff" }}
                     >
                         Nouveau Dossier
@@ -138,6 +187,7 @@ export default function Dossiers() {
                                 <TableCell><strong>Type</strong></TableCell>
                                 <TableCell><strong>Statut</strong></TableCell>
                                 <TableCell><strong>Priorité</strong></TableCell>
+                                <TableCell align="right"><strong>Actions</strong></TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -161,6 +211,17 @@ export default function Dossiers() {
                                             size="small"
                                         />
                                     </TableCell>
+                                    <TableCell align="right">
+                                        <Tooltip title="Modifier">
+                                            <IconButton
+                                                onClick={() => handleOpen(dossier)}
+                                                color="primary"
+                                                size="small"
+                                            >
+                                                <EditIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -169,7 +230,7 @@ export default function Dossiers() {
             </Paper>
 
             <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Nouveau Dossier</DialogTitle>
+                <DialogTitle>{isEditing ? "Modifier le Dossier" : "Nouveau Dossier"}</DialogTitle>
                 <DialogContent>
                     <TextField
                         select
@@ -226,10 +287,38 @@ export default function Dossiers() {
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     />
+                    <TextField
+                        label="Coût Estimé (€)"
+                        type="number"
+                        fullWidth
+                        margin="normal"
+                        value={formData.cout_estime}
+                        onChange={(e) => setFormData({ ...formData, cout_estime: e.target.value })}
+                    />
+                    <TextField
+                        label="Date d'échéance"
+                        type="date"
+                        fullWidth
+                        margin="normal"
+                        InputLabelProps={{ shrink: true }}
+                        value={formData.date_echeance}
+                        onChange={(e) => setFormData({ ...formData, date_echeance: e.target.value })}
+                    />
+                    <TextField
+                        label="Remarques"
+                        fullWidth
+                        multiline
+                        rows={2}
+                        margin="normal"
+                        value={formData.remarques}
+                        onChange={(e) => setFormData({ ...formData, remarques: e.target.value })}
+                    />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleClose}>Annuler</Button>
-                    <Button onClick={handleSubmit} variant="contained">Créer</Button>
+                    <Button onClick={handleSubmit} variant="contained">
+                        {isEditing ? "Enregistrer" : "Créer"}
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>
